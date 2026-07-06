@@ -276,6 +276,18 @@ function hexToRgba(hex, a) {
   return `rgba(${r},${g},${b},${a})`;
 }
 
+// rounded-rectangle path (canvas roundRect isn't universal yet)
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
 function draw(ctx, W, H, st) {
   const { theme } = st;
   ctx.fillStyle = theme.background;
@@ -294,7 +306,7 @@ function draw(ctx, W, H, st) {
 
   // ---- layout bands ----
   const padL = W * 0.11, padR = W * 0.05;
-  const titleSize = Math.round(H * 0.045);
+  const titleSize = Math.round(H * 0.032);
   const subSize   = Math.round(H * 0.022);
   const lblSize   = Math.round(H * 0.017);
   const legSize   = Math.round(H * 0.02);
@@ -351,28 +363,17 @@ function draw(ctx, W, H, st) {
   }
 
   // ---- peak-window band ----
-  const N = 400;
-  const totals = [];
-  let maxTotal = 0;
-  for (let i = 0; i <= N; i++) {
-    const day = (i / N) * xMax;
-    let t = 0;
-    for (const a of active) t += intensity(day, a.ready, a.peak, a.peakEnd, a.decline);
-    totals.push({ day, t });
-    if (t > maxTotal) maxTotal = t;
-  }
-  const thresh = maxTotal * 0.85;
-  let winStart = null, winEnd = null;
-  for (const p of totals) {
-    if (p.t >= thresh) {
-      if (winStart === null) winStart = p.day;
-      winEnd = p.day;
-    }
-  }
+  // Simple definition: from the earliest peak-start to the latest peak-end
+  // across all active attributes. (peak-end falls back to peak if unset.)
+  const peaks = active.map(a => a.peak);
+  const peakEnds = active.map(a => a.peakEnd != null && a.peakEnd > a.peak ? a.peakEnd : a.peak);
+  const winStart = Math.min(...peaks);
+  const winEnd   = Math.max(...peakEnds);
 
-  if (winStart !== null && winEnd > winStart) {
+  if (winEnd >= winStart) {
+    const bandW = Math.max(1, X(winEnd) - X(winStart));  // at least 1px so fill is visible
     ctx.fillStyle = hexToRgba(theme.window, 0.07);
-    ctx.fillRect(X(winStart), py, X(winEnd) - X(winStart), ph);
+    ctx.fillRect(X(winStart), py, bandW, ph);
     ctx.strokeStyle = hexToRgba(theme.window, 0.22);
     ctx.setLineDash([4, 5]);
     ctx.lineWidth = 1;
@@ -383,7 +384,9 @@ function draw(ctx, W, H, st) {
     ctx.fillStyle = hexToRgba(theme.text, 0.6);
     ctx.textAlign = 'center';
     ctx.font = `400 ${lblSize}px ${FONT}`;
-    const wlbl = `peak window  ${Math.round(winStart)}–${Math.round(winEnd)} d`;
+    const wlbl = winEnd > winStart
+      ? `peak window  ${Math.round(winStart)}–${Math.round(winEnd)} d`
+      : `peak  d${Math.round(winStart)}`;
     ctx.fillText(wlbl, X((winStart + winEnd) / 2), winLabelY);
   }
 
@@ -438,7 +441,7 @@ function draw(ctx, W, H, st) {
   const padX = plSize * 0.7;
   const padY = plSize * 0.45;
   const laneH = plSize + padY * 2 + plSize * 0.6;
-  const baseY = Y(1) - padY * 2 - plSize * 0.5;   // first lane just above the peak row
+  const baseY = Y(1) + padY * 2 + plSize * 0.5;   // first lane just below the peak row
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -460,15 +463,15 @@ function draw(ctx, W, H, st) {
   }
 
   for (const lbl of peakLabels) {
-    const cy = baseY - lbl.lane * laneH;
+    const cy = baseY + lbl.lane * laneH;   // stack DOWNWARD
 
-    // tick line from peak point up to the label
+    // tick line from peak point down to the label
     ctx.strokeStyle = hexToRgba(lbl.color, 0.5);
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 3]);
     ctx.beginPath();
     ctx.moveTo(lbl.peakX, Y(1));
-    ctx.lineTo(lbl.cx, cy + plSize * 0.5);
+    ctx.lineTo(lbl.cx, cy - plSize * 0.5);
     ctx.stroke();
     ctx.setLineDash([]);
 
@@ -540,7 +543,17 @@ window.addEventListener('resize', () => {
 });
 window.addEventListener('load', render);
 window.addEventListener('orientationchange', render);
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+
+// Explicitly load the web fonts the canvas needs BEFORE the first paint,
+// so canvas doesn't fall back to sans-serif on a cold load.
+if (document.fonts && document.fonts.load) {
+  Promise.all([
+    document.fonts.load(`400 16px 'Space Mono'`),
+    document.fonts.load(`700 16px 'Space Mono'`),
+  ]).then(render).catch(render);
+} else if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(render);
+}
 render();
 
 // =============================================================
