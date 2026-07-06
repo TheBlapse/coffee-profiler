@@ -418,20 +418,75 @@ function draw(ctx, W, H, st) {
       ctx.arc(xx, yy, Math.max(r, H * 0.004), 0, Math.PI * 2);
       ctx.fill(); ctx.stroke();
     });
-
-    // peak label — single-day "dN" or plateau range "dN–dM"
-    const pd = a.peak;
-    if (pd >= 0 && pd <= xMax) {
-      const yy = Y(1);
-      ctx.fillStyle = theme[a.key];
-      ctx.textAlign = 'center';
-      ctx.font = `500 ${Math.round(H * 0.016)}px ${FONT}`;
-      let lbl = `d${Math.round(pd)}`;
-      if (a.peakEnd !== null && a.peakEnd > pd)
-        lbl = `d${Math.round(pd)}–d${Math.round(a.peakEnd)}`;
-      ctx.fillText(lbl, X((pd + (a.peakEnd || pd)) / 2), yy - H * 0.014);
-    }
   }
+
+  // ---- peak labels (lane-packed so same-day peaks don't collide) ----
+  // Build a list of label anchors, then assign each to a vertical lane.
+  const peakLabels = [];
+  for (const a of active) {
+    if (a.peak < 0 || a.peak > xMax) continue;
+    const cx = X((a.peak + (a.peakEnd || a.peak)) / 2);
+    const txt = (a.peakEnd !== null && a.peakEnd > a.peak)
+      ? `d${Math.round(a.peak)}–d${Math.round(a.peakEnd)}`
+      : `d${Math.round(a.peak)}`;
+    peakLabels.push({ cx, txt, color: theme[a.key], peakX: X(a.peak) });
+  }
+  // sort left-to-right
+  peakLabels.sort((p, q) => p.cx - q.cx);
+
+  const plSize = Math.round(H * 0.016);
+  const padX = plSize * 0.7;
+  const padY = plSize * 0.45;
+  const laneH = plSize + padY * 2 + plSize * 0.6;
+  const baseY = Y(1) - padY * 2 - plSize * 0.5;   // first lane just above the peak row
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `700 ${plSize}px ${FONT}`;
+
+  const lanes = []; // each lane = rightmost x-extent of labels placed in it
+  for (const lbl of peakLabels) {
+    const w = ctx.measureText(lbl.txt).width + padX * 2;
+    const halfW = w / 2;
+    // find the lowest lane where this label fits without overlapping
+    let lane = 0;
+    for (; lane < lanes.length; lane++) {
+      if (lbl.cx - halfW > lanes[lane] + 1) break;
+    }
+    lbl.lane = lane;
+    lbl.w = w;
+    lbl.halfW = halfW;
+    lanes[lane] = lbl.cx + halfW;
+  }
+
+  for (const lbl of peakLabels) {
+    const cy = baseY - lbl.lane * laneH;
+
+    // tick line from peak point up to the label
+    ctx.strokeStyle = hexToRgba(lbl.color, 0.5);
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(lbl.peakX, Y(1));
+    ctx.lineTo(lbl.cx, cy + plSize * 0.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // background pill
+    ctx.fillStyle = theme.background;
+    ctx.strokeStyle = lbl.color;
+    ctx.lineWidth = 1;
+    const rx = lbl.cx - lbl.halfW, ry = cy - plSize * 0.5 - padY * 0.6;
+    const rw = lbl.w, rh = plSize + padY * 1.2;
+    roundRect(ctx, rx, ry, rw, rh, plSize * 0.5);
+    ctx.fill();
+    ctx.stroke();
+
+    // text
+    ctx.fillStyle = lbl.color;
+    ctx.fillText(lbl.txt, lbl.cx, cy);
+  }
+  ctx.textBaseline = 'alphabetic';
 
   // ---- axis captions ----
   ctx.fillStyle = hexToRgba(theme.text, 0.45);
