@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flavor Peak Profile — Coffee Roaster Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- ============ SIDEBAR ============ -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">◐</div>
+        <div>
+          <h1>PROFILE SETTINGS</h1>
+          <p class="brand-sub">flavor peak generator</p>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="coffeeName">coffee name</label>
+        <input id="coffeeName" type="text" value="Single Origin — Ethiopia Yirgacheffe" />
+      </div>
+      <div class="field-group">
+        <label for="subtitle">subtitle / roaster</label>
+        <input id="subtitle" type="text" value="Origin Roasters" />
+      </div>
+      <div class="field-group">
+        <label for="roastDate">roast date</label>
+        <input id="roastDate" type="date" />
+      </div>
+
+      <div class="divider"></div>
+
+      <p class="help">
+        For each attribute, enter the day (from roast) it
+        <b>begins to be ready</b>, <b>peaks</b>, and starts to <b>decline</b>.
+        <b>peak end</b> is optional — leave blank for a single-day peak, or set a
+        range to create a flat plateau.
+      </p>
+
+      <div id="attrList" class="attr-list"></div>
+
+      <div class="divider"></div>
+
+      <button id="exportBtn" class="btn primary" type="button">export as png</button>
+      <button id="resetBtn" class="btn ghost" type="button">reset defaults</button>
+
+      <!-- ============ ADVANCED (collapsed by default) ============ -->
+      <div class="divider"></div>
+      <button id="advToggle" class="adv-toggle" type="button" aria-expanded="false">
+        <span class="caret">▸</span> advanced options
+      </button>
+      <div id="advPanel" class="adv-panel" hidden>
+        <p class="adv-hint">customize the color of every element.</p>
+        <div id="colorGrid" class="color-grid"></div>
+        <button id="resetColors" class="btn ghost small" type="button">reset colors</button>
+      </div>
+    </aside>
+
+    <!-- ============ MAIN / GRAPH ============ -->
+    <main class="main">
+      <header class="main-header">
+        <h2>FLAVOR PEAK PROFILE</h2>
+        <span class="axis-note">intensity (0–1)  vs.  days from roast</span>
+      </header>
+      <div class="canvas-wrap">
+        <canvas id="graph"></canvas>
+      </div>
+      <p class="caption">the shaded band marks the <b>peak window</b> — where the sum of all attributes is at its highest.</p>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
