@@ -169,6 +169,126 @@ function readForm() {
   });
 }
 
+// ---------- persist to localStorage ----------
+function saveState() {
+  try {
+    const data = {
+      coffeeName: state.coffeeName,
+      subtitle:   state.subtitle,
+      roastDate:  state.roastDate,
+      theme:      state.theme,
+      attrs:      state.attrs.map(a => ({
+        key:    a.key,
+        ready:  a.ready,
+        peak:   a.peak,
+        peakEnd: a.peakEnd,
+        decline: a.decline,
+        enabled: a.enabled,
+      })),
+    };
+    localStorage.setItem('fpp-state', JSON.stringify(data));
+  } catch (_) { /* storage full or unavailable — silently ignore */ }
+}
+
+// ---------- restore from localStorage ----------
+function restoreState() {
+  try {
+    const raw = localStorage.getItem('fpp-state');
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+
+    // text fields
+    document.getElementById('coffeeName').value = data.coffeeName || '';
+    document.getElementById('subtitle').value   = data.subtitle || '';
+    roastDateInput.value = data.roastDate || todayISO();
+    state.coffeeName = document.getElementById('coffeeName').value;
+    state.subtitle   = document.getElementById('subtitle').value;
+    state.roastDate  = roastDateInput.value;
+
+    // theme (color pickers + CSS var)
+    if (data.theme) {
+      state.theme = { ...THEME_DEFAULTS, ...data.theme };
+      document.querySelectorAll('input[type="color"][data-theme]').forEach(inp => {
+        inp.value = state.theme[inp.dataset.theme] || THEME_DEFAULTS[inp.dataset.theme];
+      });
+      document.documentElement.style.setProperty('--accent', state.theme.accent);
+    }
+
+    // attributes
+    if (data.attrs) {
+      data.attrs.forEach(saved => {
+        const a = state.attrs.find(x => x.key === saved.key);
+        if (!a) return;
+        a.ready = saved.ready ?? DEFAULTS[a.key].ready;
+        a.peak  = saved.peak  ?? DEFAULTS[a.key].peak;
+        a.peakEnd = saved.peakEnd ?? null;
+        a.decline = saved.decline ?? DEFAULTS[a.key].decline;
+        a.enabled = saved.enabled !== false;
+
+        // write back into DOM inputs
+        document.querySelectorAll(`input[data-key="${a.key}"][data-field="ready"]`)
+          .forEach(i => i.value = a.ready);
+        document.querySelectorAll(`input[data-key="${a.key}"][data-field="peak"]`)
+          .forEach(i => i.value = a.peak);
+        document.querySelectorAll(`input[data-key="${a.key}"][data-field="peakEnd"]`)
+          .forEach(i => i.value = a.peakEnd ?? '');
+        document.querySelectorAll(`input[data-key="${a.key}"][data-field="decline"]`)
+          .forEach(i => i.value = a.decline);
+
+        const btn = document.querySelector(`.mute-btn[data-key="${a.key}"]`);
+        btn.textContent = a.enabled ? 'on' : 'off';
+        btn.closest('.attr').classList.toggle('muted', !a.enabled);
+      });
+    }
+
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// ---------- apply full boilerplate reset ----------
+function applyBoilerplate() {
+  document.getElementById('coffeeName').value = 'Single Origin — Ethiopia Yirgacheffe';
+  document.getElementById('subtitle').value   = 'Origin Roasters';
+  roastDateInput.value = todayISO();
+  state.coffeeName = document.getElementById('coffeeName').value;
+  state.subtitle   = document.getElementById('subtitle').value;
+  state.roastDate  = roastDateInput.value;
+
+  state.attrs.forEach(a => {
+    const def = DEFAULTS[a.key];
+    a.ready = def.ready;
+    a.peak  = def.peak;
+    a.peakEnd = def.peakEnd;
+    a.decline = def.decline;
+    a.enabled = true;
+
+    document.querySelectorAll(`input[data-key="${a.key}"][data-field="ready"]`)
+      .forEach(i => i.value = def.ready);
+    document.querySelectorAll(`input[data-key="${a.key}"][data-field="peak"]`)
+      .forEach(i => i.value = def.peak);
+    document.querySelectorAll(`input[data-key="${a.key}"][data-field="peakEnd"]`)
+      .forEach(i => i.value = def.peakEnd ?? '');
+    document.querySelectorAll(`input[data-key="${a.key}"][data-field="decline"]`)
+      .forEach(i => i.value = def.decline);
+
+    const btn = document.querySelector(`.mute-btn[data-key="${a.key}"]`);
+    btn.textContent = 'on';
+    btn.closest('.attr').classList.remove('muted');
+  });
+
+  // reset colors
+  state.theme = { ...THEME_DEFAULTS };
+  document.querySelectorAll('input[type="color"][data-theme]').forEach(inp => {
+    inp.value = THEME_DEFAULTS[inp.dataset.theme];
+  });
+  document.documentElement.style.setProperty('--accent', THEME_DEFAULTS.accent);
+
+  // clear saved state
+  try { localStorage.removeItem('fpp-state'); } catch (_) {}
+}
+
 // ---------- wire up ----------
 document.querySelectorAll('#attrList input[type=number]').forEach(inp => {
   inp.addEventListener('input', () => {
@@ -212,6 +332,7 @@ document.getElementById('resetColors').addEventListener('click', () => {
     inp.value = THEME_DEFAULTS[inp.dataset.theme];
   });
   document.documentElement.style.setProperty('--accent', THEME_DEFAULTS.accent);
+  saveState();
   render();
 });
 
@@ -224,17 +345,10 @@ advToggle.addEventListener('click', () => {
 });
 
 document.getElementById('resetBtn').addEventListener('click', () => {
-  document.querySelectorAll('#attrList input[type=number]').forEach(inp => {
-    const def = DEFAULTS[inp.dataset.key][inp.dataset.field];
-    inp.value = def ?? '';
-  });
-  state.attrs.forEach(a => {
-    a.enabled = true;
-    const btn = document.querySelector(`.mute-btn[data-key="${a.key}"]`);
-    btn.textContent = 'on';
-    btn.closest('.attr').classList.remove('muted');
-  });
+  applyBoilerplate();
+  saveState();
   render();
+  showToast('reset to defaults — saved state cleared');
 });
 
 // =============================================================
@@ -526,6 +640,7 @@ const ctx = canvas.getContext('2d');
 
 function render() {
   readForm();
+  saveState();
   const wrap = canvas.parentElement;
   const w = wrap.clientWidth, h = wrap.clientHeight;
   if (w === 0 || h === 0) return;
@@ -546,6 +661,8 @@ window.addEventListener('orientationchange', render);
 
 // Explicitly load the web fonts the canvas needs BEFORE the first paint,
 // so canvas doesn't fall back to sans-serif on a cold load.
+// Try to restore saved state first; fall back to default render.
+restoreState();
 if (document.fonts && document.fonts.load) {
   Promise.all([
     document.fonts.load(`400 16px 'Space Mono'`),
