@@ -34,7 +34,7 @@ const THEME_DEFAULTS = {
 const DAY_MIN = 0;
 const DAY_MAX = 200;
 const FWHM_C = 1 / Math.sqrt(2 * Math.LN2);
-const FONT = "'Space Mono', ui-monospace, monospace";
+const FONT = "'Space Mono', monospace";
 
 // ---------- toast ----------
 const toastEl = document.getElementById('toast');
@@ -285,7 +285,7 @@ function draw(ctx, W, H, st) {
   if (active.length === 0) {
     ctx.fillStyle = theme.text;
     ctx.globalAlpha = 0.4;
-    ctx.font = `${Math.round(H * 0.03)}px `;
+    ctx.font = `${Math.round(H * 0.03)}px ${FONT}`;
     ctx.textAlign = 'center';
     ctx.fillText('— enable at least one attribute —', W / 2, H / 2);
     ctx.globalAlpha = 1;
@@ -322,12 +322,12 @@ function draw(ctx, W, H, st) {
 
   // ---- title + subtitle (+ roast date) ----
   ctx.fillStyle = theme.text;
-  ctx.font = `700 ${titleSize}px `;
+  ctx.font = `700 ${titleSize}px ${FONT}`;
   ctx.textAlign = 'left';
   ctx.fillText(st.coffeeName || 'Untitled Coffee', padL, titleY);
 
   ctx.fillStyle = hexToRgba(theme.text, 0.55);
-  ctx.font = `400 ${subSize}px `;
+  ctx.font = `400 ${subSize}px ${FONT}`;
   const sub = [st.subtitle, formatDate(st.roastDate)].filter(Boolean).join('  ·  ');
   ctx.fillText(sub, padL, subtitleY);
 
@@ -335,7 +335,7 @@ function draw(ctx, W, H, st) {
   ctx.strokeStyle = theme.grid;
   ctx.lineWidth = 1;
   ctx.fillStyle = hexToRgba(theme.text, 0.45);
-  ctx.font = `400 ${lblSize}px `;
+  ctx.font = `400 ${lblSize}px ${FONT}`;
 
   for (let v = 0; v <= 1.0001; v += 0.25) {
     const yy = Y(v);
@@ -382,7 +382,7 @@ function draw(ctx, W, H, st) {
     ctx.setLineDash([]);
     ctx.fillStyle = hexToRgba(theme.text, 0.6);
     ctx.textAlign = 'center';
-    ctx.font = `400 ${lblSize}px `;
+    ctx.font = `400 ${lblSize}px ${FONT}`;
     const wlbl = `peak window  ${Math.round(winStart)}–${Math.round(winEnd)} d`;
     ctx.fillText(wlbl, X((winStart + winEnd) / 2), winLabelY);
   }
@@ -425,7 +425,7 @@ function draw(ctx, W, H, st) {
       const yy = Y(1);
       ctx.fillStyle = theme[a.key];
       ctx.textAlign = 'center';
-      ctx.font = `500 ${Math.round(H * 0.016)}px `;
+      ctx.font = `500 ${Math.round(H * 0.016)}px ${FONT}`;
       let lbl = `d${Math.round(pd)}`;
       if (a.peakEnd !== null && a.peakEnd > pd)
         lbl = `d${Math.round(pd)}–d${Math.round(a.peakEnd)}`;
@@ -436,7 +436,7 @@ function draw(ctx, W, H, st) {
   // ---- axis captions ----
   ctx.fillStyle = hexToRgba(theme.text, 0.45);
   ctx.textAlign = 'center';
-  ctx.font = `400 ${lblSize}px `;
+  ctx.font = `400 ${lblSize}px ${FONT}`;
   ctx.fillText('days from roast', px + pw / 2, xCaptionY);
   ctx.save();
   ctx.translate(px - lblSize * 4.5, py + ph / 2);
@@ -446,7 +446,7 @@ function draw(ctx, W, H, st) {
 
   // ---- legend ----
   ctx.textAlign = 'center';
-  ctx.font = `500 ${legSize}px `;
+  ctx.font = `500 ${legSize}px ${FONT}`;
   const legItemW = pw / active.length;
   active.forEach((a, i) => {
     const cx = px + legItemW * i + legItemW / 2;
